@@ -1,0 +1,61 @@
+local remote = script.Parent.BulletConnection
+local count = 0;
+local walkAnim = script.Parent.Animation
+local idle = script.Parent.Idle
+local breakLight = script.Parent.BreakLight
+local sound = script.Parent.Sound
+local teams = game:GetService("Teams")
+local Monster = teams.Monster
+local player 
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local bloodparticle = ReplicatedStorage:FindFirstChild("BloodParticle")
+local blood
+remote.OnServerEvent:Connect(function(player, hitPart)
+	if hitPart then
+		if hitPart.Parent:FindFirstChild("Humanoid") or hitPart.Parent.Parent:FindFirstChild("Humanoid") then
+			local humanoid = hitPart.Parent:FindFirstChild("Humanoid") or hitPart.Parent.Parent:FindFirstChild("Humanoid")
+			
+			
+			
+			if hitPart.Name  == "Head" or hitPart.Parent.Name == "Hair" or hitPart.Name == "Face" then
+				humanoid:TakeDamage(20)
+				
+				if Players:GetPlayerFromCharacter(humanoid.Parent) == Monster then
+					humanoid:SetAttribute("HeadHP", humanoid:GetAttribute("HeadHP") - 10)
+					print(humanoid:GetAttribute("HeadHP"))
+				end
+			else
+				humanoid:TakeDamage(10)
+			end
+			print(humanoid.Health)
+			
+			blood = bloodparticle:Clone()
+			blood.Parent = hitPart
+			
+		elseif hitPart:FindFirstChild("w") then
+			hitPart:Destroy() 
+			
+		end
+	end
+	
+end)
+
+sound.OnServerEvent:Connect(function()
+	local gunfire = script.Parent.Handle:FindFirstChild("Sound")
+	gunfire:play()
+end)
+
+
+
+
+script.Parent.EquippedEvent.OnServerEvent:Connect(function(plr, message)
+	local h = plr.Character:FindFirstChildOfClass("Humanoid")
+	local animTrack = h.Animator:LoadAnimation(walkAnim)
+	if (message=="start") then
+		animTrack:Play()
+		print("track played")
+	elseif (message=="stop") then
+		animTrack:Stop()
+	end
+end)
