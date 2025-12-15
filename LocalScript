@@ -1,0 +1,219 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local mouse = player:GetMouse()
+local Camera = workspace.Camera
+local RunService = game:GetService("RunService")
+local uis = game:GetService("UserInputService")
+local reload = false
+local remote  = script.Parent.BulletConnection
+local SoundService = game:GetService("SoundService")
+local EquippedEvent = script.Parent.EquippedEvent
+local held = false
+local ViewModel
+local rHeld
+local RNG = Random.new()
+local Shake = false
+local Intensity = .5
+local soundplay = script.Parent.Sound
+local pointlight = script.Parent.Handle.PointLight
+local sparks = script.Parent.Handle.EffectPart.Effect.Core
+local equipped = false	
+local mag = 30
+local aiming = false
+local aimCF = CFrame.new()
+local swayAmount = .1
+local lastCameraCF = CFrame.new()
+local humanoid
+local animator
+local shotAnimation = Instance.new("Animation")
+shotAnimation.AnimationId = "rbxassetid://109619810179354"
+local shotAnimationTrack
+
+
+mouse.Button1Down:Connect(function()
+	held = true
+end)
+mouse.Button1Up:Connect(function()
+	held = false
+end)
+mouse.Button2Down:Connect(function()
+	aiming = true
+end)
+mouse.Button2Up:Connect(function()
+	aiming = false
+end)
+
+
+local function playerMoving()
+	return player.Character:FindFirstChild("HumanoidRootPart").AssemblyLinearVelocity.Magnitude>0
+end
+
+script.Parent.Equipped:Connect(function()
+	uis.MouseIconEnabled = false
+	equipped = true
+	game.ReplicatedStorage.ViewModel:Clone().Parent = Camera
+	player.CameraMode = Enum.CameraMode.LockFirstPerson
+	script.Parent.Handle.Transparency = 1
+	ViewModel = Camera.ViewModel
+	ViewModel.Flash.PointLight.Brightness = 0
+	ViewModel.Flash.SpotLight.Brightness = 0
+	humanoid = ViewModel:FindFirstChild("Humanoid")
+	animator = humanoid:FindFirstChild("Animator")
+	shotAnimationTrack = animator:LoadAnimation(shotAnimation)
+	sparks.Brightness = 0
+	pointlight.Brightness = 0
+	EquippedEvent:FireServer("start")
+	
+	
+end)
+
+script.Parent.Unequipped:Connect(function()
+	uis.MouseIconEnabled = true
+	equipped = false
+	ViewModel = Camera.ViewModel
+	ViewModel:Destroy()
+	player.CameraMode = Enum.CameraMode.Classic
+	
+	EquippedEvent:FireServer("stop")
+end)
+
+local swayCF = CFrame.new()
+
+
+
+
+RunService.RenderStepped:Connect(function()
+	
+	
+	
+	
+	
+	if player.Character.Humanoid.Health <= 0 then
+		if Camera:FindFirstChild("ViewModel") ~= nil then
+			workspace.Camera.ViewModel:Destroy()
+		end
+	end
+	
+	if equipped == true then
+		if Camera:FindFirstChild("ViewModel") ~= nil then
+			Camera.ViewModel:SetPrimaryPartCFrame(Camera.CFrame)
+			for i, v in pairs(Camera.ViewModel:GetChildren()) do
+				if v:IsA("BasePart") then
+					v.CanCollide = false
+				end
+			end
+			
+			local rot = Camera.CFrame:ToObjectSpace(lastCameraCF)
+			local x,y,z = rot:ToOrientation()
+			swayCF = swayCF:Lerp(CFrame.Angles(math.sin(x) * swayAmount, math.sin(y) * swayAmount, 0), .1)
+			
+			
+			if aiming then
+				local offset = Camera.ViewModel.AimPart.CFrame:ToObjectSpace(Camera.ViewModel.PrimaryPart.CFrame)
+				aimCF = aimCF:Lerp(offset,.2)
+			else
+				local offset = CFrame.new()
+				aimCF = aimCF:Lerp(offset,.2)
+			end
+			
+			Camera.ViewModel:SetPrimaryPartCFrame(Camera.CFrame * swayCF * aimCF) 	
+		end
+	end
+end)
+
+while true do
+	repeat wait() until player.Character:FindFirstChild("M16")
+	if held and mag > 0 then
+		ViewModel.EffectPart.Smoke.Enabled = true
+		pointlight.Brightness = 0
+		sparks.Brightness = 1
+		--ViewModel.Flash.PointLight.Brightness = 10
+		ViewModel.Flash.SpotLight.Brightness = 40
+		ViewModel.Flash.SpotLight.Range = 100
+		
+		mouseTarget = mouse.Hit.Position
+		soundplay:FireServer()
+		shotAnimationTrack:Play()
+		local raycastParams = RaycastParams.new()
+		raycastParams.FilterDescendantsInstances = {player.Character}
+		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+		
+		local startPos = Camera.CFrame.Position
+		local range = 500
+		local aimDirection = (mouseTarget - startPos).unit
+		local size = .3
+		--local raycastResult = workspace:Raycast(startPos, range, raycastParams)
+		local rayResult = workspace:Spherecast(startPos, size, aimDirection * range, raycastParams)
+		print(rayResult)
+		if rayResult then
+			local hitPart = rayResult.Instance
+			local hitPos = rayResult.Position
+			local distance = (hitPos - startPos).magnitude	
+			
+			if hitPart then
+				print(hitPart)
+				remote:FireServer(hitPart)
+				print(hitPart)
+			end
+		end
+		
+		
+		
+		ViewModel = Camera.ViewModel
+		ViewModel.Flash.ParticleEmitter:Emit()
+		--ViewModel.Flash.PointLight.Brightness = 10
+		--ViewModel.Flash.SpotLight.Brightness = 40
+		ViewModel.EffectPart.Effect.Core.Brightness = 1
+		ViewModel.EffectPart.Effect.CoreMiniSparks.Brightness = 1
+		ViewModel.EffectPart.Effect.MiniSparks.Brightness = 1
+		
+		
+		
+		wait(.05)
+		--ViewModel.Flash.PointLight.Brightness = 5
+		--ViewModel.Flash.SpotLight.Brightness = 40
+		ViewModel.EffectPart.Transparency = 1
+		ViewModel.EffectPart.Effect.Core.Brightness = 0
+		sparks.Brightness = 0 
+		ViewModel.EffectPart.Effect.CoreMiniSparks.Brightness = 0
+		ViewModel.EffectPart.Effect.MiniSparks.Brightness = 0
+		ViewModel.EffectPart.Effect.Sparks.Brightness = 0
+		---wait(.05)
+		mag -= 1
+	else if held and mag == 0 then
+			ViewModel.EffectPart.Smoke.Enabled = false
+			--ViewModel.Flash.PointLight.Brightness = 0
+			--ViewModel.Flash.SpotLight.Brightness = 0
+			--pointlight.Brightness = 0
+			sparks.Brightness = 0
+			shake = false
+			local reload = script.Parent.EmptyMag
+			reload:Play()
+			
+		end
+	end
+	
+	
+	
+	rHeld = uis:IsKeyDown(Enum.KeyCode.R)
+	if rHeld  and equipped then
+		shake = false
+		script.Parent.Reload:Play()
+		reload = true
+		task.wait(3)
+		mag = 30
+		reload = false
+	end
+	
+	if not held then
+		--ViewModel.Flash.PointLight.Brightness = 0
+		--ViewModel.Flash.SpotLight.Brightness = 0
+		ViewModel.EffectPart.Smoke.Enabled = false
+		pointlight.Brightness = 0
+		sparks.Brightness = 0
+		shake = false
+	end
+end
+
+
+
